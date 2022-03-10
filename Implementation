@@ -1,0 +1,215 @@
+from ast import Break
+from random import *
+from tkinter import *
+from tkinter import font
+from tkinter import simpledialog
+
+
+# This program uses Object-Oriented Paradigm to approach the problem
+# First a class is created to run the game.
+class GameOfLife(Frame):
+    # The class takes as input a variable called 'Frame' which will call the root feature of the tkinter package for the GUI display.
+    def __init__(self, parent):
+        # Here we define the different part of the class. Frame and parent helps us to call the GUI of the game.
+        Frame.__init__(self, parent)
+        self.parent = parent
+        self.grid(row=0, column=0)
+
+        # Here we assign the number of cells/grid that we want to play the game on.
+
+        self.size_x = 0
+        self.size_y = 0
+
+        # This calls the functions that creates the grid in the form of buttons that alternates colours to show if cell is dead or alive.
+        self.cell_buttons = []
+
+        # This part of the object is useful to help us determine when to end or continue running the game.
+        self.generate_next = True
+
+        # This class calls the function within the class when it is called. The initiateUI protocol calls other functions to ensure the game is played.
+        self.initialUI()
+
+    # This function creates text boxes so that the input grid can be given.
+    def init_inputVariables(self):
+        self.prompt = Label(self.title_frame, text="Enter column and width size to set size, then press Play Game:")
+        self.prompt.pack(side=TOP)
+
+        self.input_width = Label(self.title_frame, text=" Input width ")
+        self.input_width.pack(side=LEFT)
+
+        self.wentry = Entry(self.title_frame, bd=1)
+        self.wentry.pack(side=LEFT)
+
+        self.input_height = Label(self.title_frame, text=" Input height ")
+        self.input_height.pack(side=LEFT)
+
+        self.hentry = Entry(self.title_frame, bd=1)
+        self.hentry.pack(side=RIGHT)
+
+        self.set_button = Button(self.parent, text="Set Size", command=self.set_size)
+        self.set_button.grid(row=2, column=2, sticky=W)
+
+    # This function removes the input text box to begin playing the game
+    def destroy_inputVariables(self):
+        self.prompt.destroy()
+        self.input_width.destroy()
+        self.input_height.destroy()
+        self.wentry.destroy()
+        self.hentry.destroy()
+        self.set_button.destroy()
+
+    # Next we call the define a function to describe the GUI of the game.
+    def initialUI(self):
+        # We set the title of the Game in the UI
+        self.parent.title("Game of Life Project")
+
+        # This gives various definition as pertaining to the GUI: how it looks, colours, fonts.
+        self.title_frame = Frame(self.parent)
+        self.title_frame.grid(row=0, column=0, columnspan=4)
+
+        self.titleFont = font.Font(family=" Calibri ", size=14)
+        title = Label(self.title_frame, text="Conway's Game of Life", font=self.titleFont)
+        title.pack(side=TOP)
+
+        # This calls the function to input the width and height.
+        self.init_inputVariables()
+
+    # This function gets the input width and height and replaces the size of the grid with it.
+    def set_size(self):
+        # This checks if the input is compatible with the integer function and can be used to draw the grid.
+        try:
+            self.size_x = int(self.wentry.get())
+            self.size_y = int(self.hentry.get())
+        except:
+            return
+
+        self.destroy_inputVariables()
+
+        # This calls the function to build the cells.
+        self.build_grid()
+
+        # As soon as the cells are built, this button initializes the game by calling the function self.simulate_game function.
+        self.start_button = Button(self.parent, text="Play Game", command=self.simulate_game)
+        self.start_button.grid(row=1, column=1, sticky=E)
+
+        # We create another button that resets all the cells to dead
+        self.reset_button = Button(self.parent, text="Reset", state=DISABLED, command=self.reset_game)
+        self.reset_button.grid(row=1, column=2, sticky=W)
+
+    # We develop the function to build the grid of cells
+    def build_grid(self):
+        # First we create a frame of grid of the input received
+        self.game_frame = Frame(self.parent, width=self.size_x + 2, height=self.size_y + 2, borderwidth=1,
+                                relief=SUNKEN)
+        self.game_frame.grid(row=2, column=0, columnspan=4)
+
+        # Here we create a list of black and white. Black for alive cells and White for dead cells
+        colors = ["white", "black"]
+
+        # Here we initialize the cells in the form of buttons that can change colors. We also create a belt of cells round our initial grid.
+        self.cell_buttons = [[Button(self.game_frame, bg="white", width=2, height=1) for i in range(self.size_x + 2)]
+                             for j in range(self.size_y + 2)]
+
+        # Here we set the grid of cells to be random between black and white
+        for i in range(2, self.size_y):
+            for j in range(2, self.size_x):
+                self.cell_buttons[i][j]['bg'] = choice(colors)
+
+        # Here we cause the cells to toggle between white and black if clicked.
+        for i in range(1, self.size_y + 1):
+            for j in range(1, self.size_x + 1):
+                self.cell_buttons[i][j].grid(row=i, column=j, sticky=W + E)
+                self.cell_buttons[i][j]['command'] = lambda i=i, j=j: self.cell_toggle(self.cell_buttons[i][j])
+
+    # Next we write a function to simulate the game
+    def simulate_game(self):
+
+        # First we disable the buttons by calling the function to disable it. This is so that the game plays on its own.
+        self.disable_buttons()
+
+        # We create a list and add coordinates of the cells by counting its neighbours.
+        buttons_to_toggle = []
+
+        # This checks every cell (excluding the belt) and based on the conditions of the game adds it to the list of buttons to toggle.
+        for i in range(2, self.size_y):
+            for j in range(2, self.size_x):
+                coord = (i, j)
+
+                # Based on the rule of the game, if a cell is white/dead, if the neighbors around it is exactly three then it lives or gets toggled to become black.
+                if self.cell_buttons[i][j]['bg'] == "white" and self.neighbor_count(i, j) == 3:
+                    buttons_to_toggle.append(coord)
+                # If the cell is alive/black, if the neighbors around it is three or two then it lives. So this condition checks if the count is not 2 and not 3. Above or below this number the cell dies.
+                elif self.cell_buttons[i][j]['bg'] == "black" and self.neighbor_count(i,
+                                                                                      j) != 3 and self.neighbor_count(i,
+                                                                                                                      j) != 2:
+                    buttons_to_toggle.append(coord)
+
+        # This takes the coordinates in the list and toggles it.
+        for coord in buttons_to_toggle:
+            self.cell_toggle(self.cell_buttons[coord[0]][coord[1]])
+
+        # If self.generate_next is true, the game continues after 360s. If not it is reset and the buttons are enabled.
+        if self.generate_next:
+            self.after(360, self.simulate_game)
+        else:
+            self.enable_buttons()
+
+    # Next a function is written that disables the buttons so this can be called when the game is running.
+    def disable_buttons(self):
+        # Creates a loop and disables the cell if it is not disabled.
+        if self.cell_buttons[1][1] != DISABLED:
+            for i in range(0, self.size_y + 2):
+                for j in range(0, self.size_x + 2):
+                    self.cell_buttons[i][j].configure(state=DISABLED)
+
+            self.reset_button.configure(state=NORMAL)
+            self.start_button.configure(state=DISABLED)
+
+    # Next we write a function to enable the buttons for the next game.
+    def enable_buttons(self):
+
+        for i in range(1, self.size_y + 2):
+            for j in range(1, self.size_x + 2):
+                self.cell_buttons[i][j]['bg'] = "white"
+                self.cell_buttons[i][j].configure(state=NORMAL)
+
+        self.reset_button.configure(state=DISABLED)
+        self.start_button.configure(state=NORMAL)
+        self.generate_next = True
+
+    # This function counts the number of neighbors of alive cells around a cell of a given coordinate.
+    def neighbor_count(self, coord_x, coord_y):
+        # This takes the particular coordinates.
+        r = coord_x
+        c = coord_y
+
+        # This creates a list of tuples which corresponds to the eight coordinates around a given cell.
+        p = [(0, 1), (0, -1), (1, 0), (-1, 0), (1, 1), (1, -1), (-1, 1), (-1, -1)]
+
+        # This initializes a count that searches for coordinates within the limits of the grid and then check to see if they are alive.
+        count = 0
+        for x, y in p:
+            if 0 < (r + y) < (self.size_x) and 0 < (c + x) < (self.size_y) and self.cell_buttons[(r + y)][(c + x)][
+                'bg'] == "black":
+                count += 1
+
+        return count
+
+    # This defines the cells to toggle for the implementation of the game.
+    def cell_toggle(self, cell):
+        if cell['bg'] == "white":
+            cell['bg'] = "black"
+        else:
+            cell['bg'] = "white"
+
+    # This resets the game to create a blank canvas for the next run.
+    def reset_game(self):
+        self.generate_next = False
+
+
+# This calls the function and runs it through the tkinter interface
+if __name__ == '__main__':
+    root = Tk()
+    game = GameOfLife(root)
+
+    root.mainloop()
